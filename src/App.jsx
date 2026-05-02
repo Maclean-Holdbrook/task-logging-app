@@ -192,37 +192,41 @@ function App() {
     <div className="app-shell">
       <header className="hero-panel">
         <div className="hero-copy-block">
-          <p className="eyebrow">Task Logging Workspace</p>
-          <h1>Know what got done, what is blocked, and what happens next.</h1>
-          <p className="hero-copy">
-            Taskk gives teams one clean place to log daily work, follow
-            progress, and keep every update visible without long status
-            meetings or scattered notes.
-          </p>
-          <div className="hero-actions">
-            <a className="primary-button hero-link" href="#task-register">
-              Start logging work
-            </a>
-            <a className="ghost-button hero-link" href="#overview">
-              See how it works
-            </a>
+          <div className="hero-intro">
+            <p className="eyebrow">Task Logging Workspace</p>
+            <h1>Know what got done, what is blocked, and what happens next.</h1>
+            <p className="hero-copy">
+              Taskk gives teams one clean place to log daily work, follow
+              progress, and keep every update visible without long status
+              meetings or scattered notes.
+            </p>
           </div>
-          <div className="status-card-grid">
-            <article className="status-card accent-blue">
-              <span>Total tasks</span>
-              <strong>{summary.total}</strong>
-              <p>Everything currently being tracked in the workspace.</p>
-            </article>
-            <article className="status-card accent-amber">
-              <span>In progress</span>
-              <strong>{summary.inProgress}</strong>
-              <p>Tasks that still need attention from the team.</p>
-            </article>
-            <article className="status-card accent-green">
-              <span>Completed</span>
-              <strong>{summary.completed}</strong>
-              <p>Work that is done and ready to report.</p>
-            </article>
+          <div className="hero-support">
+            <div className="hero-actions">
+              <a className="primary-button hero-link" href="#task-register">
+                Start logging work
+              </a>
+              <a className="ghost-button hero-link" href="#overview">
+                See how it works
+              </a>
+            </div>
+            <div className="status-card-grid">
+              <article className="status-card accent-blue">
+                <span>Total tasks</span>
+                <strong>{summary.total}</strong>
+                <p>Everything currently being tracked in the workspace.</p>
+              </article>
+              <article className="status-card accent-amber">
+                <span>In progress</span>
+                <strong>{summary.inProgress}</strong>
+                <p>Tasks that still need attention from the team.</p>
+              </article>
+              <article className="status-card accent-green">
+                <span>Completed</span>
+                <strong>{summary.completed}</strong>
+                <p>Work that is done and ready to report.</p>
+              </article>
+            </div>
           </div>
         </div>
         <div className="hero-visual">
@@ -462,6 +466,22 @@ function App() {
           </form>
         </section>
       </main>
+
+      <footer className="site-footer">
+        <div className="footer-brand">
+          <p className="panel-kicker">Taskk</p>
+          <h2>Daily task logging without the usual status clutter.</h2>
+          <p>
+            Keep project updates visible, track what is moving, and close work
+            with a cleaner handoff.
+          </p>
+        </div>
+        <div className="footer-links">
+          <a href="#overview">Overview</a>
+          <a href="#task-register">Task register</a>
+          <span>Backend mode: {backendMode === 'live' ? 'Live' : 'Preview'}</span>
+        </div>
+      </footer>
     </div>
   )
 }
