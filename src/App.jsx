@@ -468,19 +468,7 @@ function App() {
       </main>
 
       <footer className="site-footer">
-        <div className="footer-brand">
-          <p className="panel-kicker">Taskk</p>
-          <h2>Daily task logging without the usual status clutter.</h2>
-          <p>
-            Keep project updates visible, track what is moving, and close work
-            with a cleaner handoff.
-          </p>
-        </div>
-        <div className="footer-links">
-          <a href="#overview">Overview</a>
-          <a href="#task-register">Task register</a>
-          <span>Backend mode: {backendMode === 'live' ? 'Live' : 'Preview'}</span>
-        </div>
+        <p>&copy; {new Date().getFullYear()} Taskk. All rights reserved.</p>
       </footer>
     </div>
   )
