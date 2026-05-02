@@ -1,6 +1,22 @@
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ||
-  'http://localhost:4000/api'
+function normalizeApiBaseUrl(value) {
+  if (!value) {
+    return 'http://localhost:4000/api'
+  }
+
+  const trimmedValue = value.trim().replace(/\/$/, '')
+
+  if (/^https?:\/\//i.test(trimmedValue)) {
+    return trimmedValue
+  }
+
+  if (trimmedValue.startsWith('//')) {
+    return `https:${trimmedValue}`
+  }
+
+  return `https://${trimmedValue}`
+}
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
