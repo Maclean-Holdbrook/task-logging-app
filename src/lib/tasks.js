@@ -1,38 +1,5 @@
 import { request } from './api.js'
 
-const seedTasks = [
-  {
-    id: 'task-101',
-    title: 'Map frontend API contract',
-    description:
-      'Define the task payload shape and the endpoints the backend will expose.',
-    status: 'in_progress',
-    priority: 'high',
-    category: 'Planning',
-    dueDate: '2026-05-03',
-  },
-  {
-    id: 'task-102',
-    title: 'Design Supabase schema',
-    description:
-      'Create the first-pass tasks table and row-level security rules.',
-    status: 'pending',
-    priority: 'medium',
-    category: 'Database',
-    dueDate: '2026-05-05',
-  },
-  {
-    id: 'task-103',
-    title: 'Expose MCP task tools',
-    description:
-      'Prepare list, create, update, and complete tools in the backend service.',
-    status: 'completed',
-    priority: 'high',
-    category: 'MCP',
-    dueDate: '2026-05-01',
-  },
-]
-
 function normalizeTask(task) {
   return {
     id: task.id,
@@ -42,23 +9,17 @@ function normalizeTask(task) {
     priority: task.priority || 'medium',
     category: task.category?.trim() || 'General',
     dueDate: task.dueDate || task.due_date || '',
+    createdAt: task.createdAt || task.created_at || '',
   }
 }
 
 async function listTasks() {
-  try {
-    const payload = await request('/tasks')
-    const tasks = Array.isArray(payload) ? payload : payload.tasks
+  const payload = await request('/tasks')
+  const tasks = Array.isArray(payload) ? payload : payload.tasks
 
-    return {
-      tasks: (tasks || []).map(normalizeTask),
-      source: 'api',
-    }
-  } catch {
-    return {
-      tasks: seedTasks,
-      source: 'fallback',
-    }
+  return {
+    tasks: (tasks || []).map(normalizeTask),
+    source: 'api',
   }
 }
 
@@ -111,11 +72,4 @@ function getTaskSummary(tasks) {
   )
 }
 
-export {
-  createTask,
-  deleteTask,
-  getTaskSummary,
-  listTasks,
-  seedTasks,
-  updateTask,
-}
+export { createTask, deleteTask, getTaskSummary, listTasks, updateTask }

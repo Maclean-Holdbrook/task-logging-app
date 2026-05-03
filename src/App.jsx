@@ -1,12 +1,9 @@
-import { useDeferredValue, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import {
   createTask,
   deleteTask,
-  getTaskSummary,
   listTasks,
-  seedTasks,
-  updateTask,
 } from './lib/tasks.js'
 
 const emptyForm = {
@@ -18,20 +15,77 @@ const emptyForm = {
   dueDate: '',
 }
 
-const heroImageUrl =
-  'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80'
+const emptyFilters = {
+  enteredDate: '',
+  priority: '',
+  category: '',
+  status: '',
+}
+
+const defaultPriorityOptions = ['low', 'medium', 'high', 'urgent']
+const defaultStatusOptions = [
+  'pending',
+  'in_progress',
+  'completed',
+  'archived',
+  'blocked',
+]
+const defaultCategoryOptions = [
+  'General',
+  'Operations',
+  'Planning',
+  'Database',
+  'Design',
+  'Development',
+  'Testing',
+  'MCP',
+]
+
+function formatEnteredDate(value) {
+  if (!value) {
+    return 'Unknown'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function normalizeDateValue(value) {
+  if (!value) {
+    return ''
+  }
+
+  return value.slice(0, 10)
+}
+
+function normalizeTextValue(value) {
+  return value.trim().toLowerCase()
+}
+
+function mergeOptions(defaultOptions, taskValues, currentValue) {
+  return Array.from(
+    new Set([...defaultOptions, ...taskValues.filter(Boolean), currentValue].filter(Boolean)),
+  ).sort((left, right) => left.localeCompare(right))
+}
 
 function App() {
   const [tasks, setTasks] = useState([])
-  const [selectedTaskId, setSelectedTaskId] = useState(null)
   const [form, setForm] = useState(emptyForm)
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [filters, setFilters] = useState(emptyFilters)
+  const [activeSection, setActiveSection] = useState('new')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [backendMode, setBackendMode] = useState('connecting')
-  const deferredSearch = useDeferredValue(searchQuery)
 
   useEffect(() => {
     let ignore = false
@@ -49,15 +103,13 @@ function App() {
 
         setTasks(response.tasks)
         setBackendMode(response.source === 'api' ? 'live' : 'fallback')
-        setSelectedTaskId(response.tasks[0]?.id ?? null)
       } catch (loadError) {
         if (ignore) {
           return
         }
 
-        setTasks(seedTasks)
+        setTasks([])
         setBackendMode('fallback')
-        setSelectedTaskId(seedTasks[0]?.id ?? null)
         setError(loadError.message)
       } finally {
         if (!ignore) {
@@ -73,37 +125,42 @@ function App() {
     }
   }, [])
 
-  const selectedTask =
-    tasks.find((task) => task.id === selectedTaskId) ?? null
-
   const filteredTasks = tasks.filter((task) => {
+    const matchesDate =
+      !filters.enteredDate
+        ? true
+        : normalizeDateValue(task.createdAt) === filters.enteredDate
+    const matchesPriority =
+      !filters.priority
+        ? true
+        : normalizeTextValue(task.priority) === normalizeTextValue(filters.priority)
+    const matchesCategory =
+      !filters.category
+        ? true
+        : normalizeTextValue(task.category) === normalizeTextValue(filters.category)
     const matchesStatus =
-      statusFilter === 'all' ? true : task.status === statusFilter
-    const searchText = `${task.title} ${task.description} ${task.category}`
-      .toLowerCase()
-      .trim()
+      !filters.status
+        ? true
+        : normalizeTextValue(task.status) === normalizeTextValue(filters.status)
 
-    return (
-      matchesStatus &&
-      searchText.includes(deferredSearch.toLowerCase().trim())
-    )
+    return matchesDate && matchesPriority && matchesCategory && matchesStatus
   })
 
-  const summary = getTaskSummary(tasks)
-  const isEditing = Boolean(form.id)
-
-  function handleSelectTask(task) {
-    setSelectedTaskId(task.id)
-    setForm({
-      id: task.id,
-      title: task.title,
-      description: task.description,
-      priority: task.priority,
-      status: task.status,
-      category: task.category,
-      dueDate: task.dueDate,
-    })
-  }
+  const categoryOptions = mergeOptions(
+    defaultCategoryOptions,
+    tasks.map((task) => task.category),
+    form.category,
+  )
+  const priorityOptions = mergeOptions(
+    defaultPriorityOptions,
+    tasks.map((task) => task.priority),
+    form.priority,
+  )
+  const statusOptions = mergeOptions(
+    defaultStatusOptions,
+    tasks.map((task) => task.status),
+    form.status,
+  )
 
   function handleResetForm() {
     setForm(emptyForm)
@@ -120,19 +177,11 @@ function App() {
     setError('')
 
     try {
-      if (isEditing) {
-        const updated = await updateTask(form.id, form)
-        setTasks((currentTasks) =>
-          currentTasks.map((task) => (task.id === updated.id ? updated : task)),
-        )
-        setSelectedTaskId(updated.id)
-      } else {
-        const created = await createTask(form)
-        setTasks((currentTasks) => [created, ...currentTasks])
-        setSelectedTaskId(created.id)
-      }
+      const created = await createTask(form)
+      setTasks((currentTasks) => [created, ...currentTasks])
 
       handleResetForm()
+      setActiveSection('tasks')
     } catch (saveError) {
       setError(saveError.message)
     } finally {
@@ -149,14 +198,6 @@ function App() {
       setTasks((currentTasks) =>
         currentTasks.filter((task) => task.id !== taskId),
       )
-
-      if (selectedTaskId === taskId) {
-        setSelectedTaskId(null)
-      }
-
-      if (form.id === taskId) {
-        handleResetForm()
-      }
     } catch (deleteError) {
       setError(deleteError.message)
     } finally {
@@ -173,14 +214,6 @@ function App() {
       setTasks((currentTasks) =>
         currentTasks.filter((item) => item.id !== task.id),
       )
-
-      if (selectedTaskId === task.id) {
-        setSelectedTaskId(null)
-      }
-
-      if (form.id === task.id) {
-        handleResetForm()
-      }
     } catch (statusError) {
       setError(statusError.message)
     } finally {
@@ -188,100 +221,33 @@ function App() {
     }
   }
 
+  function handleFilterChange(event) {
+    const { name, value } = event.target
+    setFilters((currentFilters) => ({ ...currentFilters, [name]: value }))
+  }
+
   return (
     <div className="app-shell">
-      <header className="hero-panel">
-        <div className="hero-copy-block">
-          <div className="hero-intro">
-            <p className="eyebrow">Task Logging Workspace</p>
-            <h1>Know what got done, what is blocked, and what happens next.</h1>
-            <p className="hero-copy">
-              Taskk gives teams one clean place to log daily work, follow
-              progress, and keep every update visible without long status
-              meetings or scattered notes.
-            </p>
-          </div>
-          <div className="hero-support">
-            <div className="hero-actions">
-              <a className="primary-button hero-link" href="#task-register">
-                Start logging work
-              </a>
-              <a className="ghost-button hero-link" href="#overview">
-                See how it works
-              </a>
-            </div>
-            <div className="status-card-grid">
-              <article className="status-card accent-blue">
-                <span>Total tasks</span>
-                <strong>{summary.total}</strong>
-                <p>Everything currently being tracked in the workspace.</p>
-              </article>
-              <article className="status-card accent-amber">
-                <span>In progress</span>
-                <strong>{summary.inProgress}</strong>
-                <p>Tasks that still need attention from the team.</p>
-              </article>
-              <article className="status-card accent-green">
-                <span>Completed</span>
-                <strong>{summary.completed}</strong>
-                <p>Work that is done and ready to report.</p>
-              </article>
-            </div>
-          </div>
-        </div>
-        <div className="hero-visual">
-          <img
-            src={heroImageUrl}
-            alt="Team members planning project tasks together around a laptop"
-          />
-          <div className="hero-visual-caption">
-            <span>Built for clear updates</span>
-            <strong>Less chasing. More visibility.</strong>
-          </div>
-        </div>
-      </header>
-
-      <section className="meta-bar" id="overview">
-        <article className="meta-story">
-          <p className="panel-kicker">Why clients like it</p>
-          <h2>Everything important is easy to read.</h2>
-          <p>
-            Teams can record work, spot delays, and share progress in a format
-            that makes sense at a glance.
-          </p>
-        </article>
-        <div className="meta-story-grid">
-          <article className="meta-note">
-            <strong>Clear daily updates</strong>
-            <p>Log what was done, what is ongoing, and what needs follow-up.</p>
-          </article>
-          <article className="meta-note">
-            <strong>Simple progress view</strong>
-            <p>See open and completed work without digging through messages.</p>
-          </article>
-          <article className="meta-note">
-            <strong>Ready for reporting</strong>
-            <p>Turn task activity into quick client or team status summaries.</p>
-          </article>
-        </div>
-      </section>
-
-      {error ? <div className="banner error">{error}</div> : null}
-      {loading ? <div className="banner">Loading tasks...</div> : null}
-
-      <main className="workspace-grid">
-        <section className="panel" id="task-register">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Dashboard</p>
-              <h2>Task register</h2>
-            </div>
-            <button type="button" className="ghost-button" onClick={handleResetForm}>
-              New task
+      <main className="mobile-shell">
+        <section className="landing-panel">
+          <div className="section-switcher" role="tablist" aria-label="Task sections">
+            <button
+              type="button"
+              className={`section-tab ${activeSection === 'new' ? 'active' : ''}`}
+              onClick={() => setActiveSection('new')}
+            >
+              New
+            </button>
+            <button
+              type="button"
+              className={`section-tab ${activeSection === 'tasks' ? 'active' : ''}`}
+              onClick={() => setActiveSection('tasks')}
+            >
+              Tasks
             </button>
           </div>
 
-          <div className="task-toolbar">
+          <div className="status-strip">
             <div className="backend-pill client-pill">
               <span className={`backend-dot ${backendMode}`}></span>
               <strong>
@@ -292,184 +258,227 @@ function App() {
                     : 'Connecting to project data'}
               </strong>
             </div>
-            <div className="meta-actions">
-              <label>
-                <span>Status</span>
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                >
-                  <option value="all">All</option>
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </label>
-              <label>
-                <span>Search</span>
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search title, category, or notes"
-                />
-              </label>
-            </div>
           </div>
 
-          <div className="task-list">
-            {filteredTasks.length === 0 ? (
-              <div className="empty-state">
-                <h3>No tasks matched this view.</h3>
-                <p>Try a different filter or add a new task entry.</p>
-              </div>
-            ) : null}
+          {error ? <div className="banner error">{error}</div> : null}
+          {loading ? <div className="banner">Loading tasks...</div> : null}
 
-            {filteredTasks.map((task) => (
-              <article
-                key={task.id}
-                className={`task-card ${task.id === selectedTaskId ? 'selected' : ''}`}
-              >
-                <button
-                  type="button"
-                  className="task-card-main"
-                  onClick={() => handleSelectTask(task)}
-                >
-                  <div className="task-card-heading">
-                    <h3>{task.title}</h3>
-                    <span className={`badge status-${task.status}`}>
-                      {task.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <p>{task.description}</p>
-                  <div className="task-card-meta">
-                    <span>{task.category}</span>
-                    <span>{task.priority} priority</span>
-                    <span>Due {task.dueDate || 'not set'}</span>
-                  </div>
-                </button>
-                <div className="task-card-actions">
-                  <button
-                    type="button"
-                    className="inline-action"
-                    onClick={() => handleQuickStatus(task)}
-                    disabled={saving}
-                  >
-                    Complete and remove
+          <datalist id="priority-options">
+            {priorityOptions.map((priority) => (
+              <option key={priority} value={priority} />
+            ))}
+          </datalist>
+
+          <datalist id="category-options">
+            {categoryOptions.map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+
+          <datalist id="status-options">
+            {statusOptions.map((status) => (
+              <option key={status} value={status} />
+            ))}
+          </datalist>
+
+          {activeSection === 'new' ? (
+            <section className="panel" aria-label="New task form">
+              <div className="panel-header compact">
+                <div>
+                  <p className="panel-kicker">New</p>
+                  <h1>Log new task</h1>
+                </div>
+              </div>
+
+              <form className="task-form" onSubmit={handleSubmit}>
+                <label>
+                  <span>Title</span>
+                  <input
+                    name="title"
+                    value={form.title}
+                    onChange={handleChange}
+                    placeholder="Prepare weekly release notes"
+                    required
+                  />
+                </label>
+
+                <label>
+                  <span>Description</span>
+                  <textarea
+                    name="description"
+                    value={form.description}
+                    onChange={handleChange}
+                    rows="5"
+                    placeholder="Capture what was done, blockers, and follow-up."
+                  />
+                </label>
+
+                <div className="form-grid">
+                  <label>
+                    <span>Status</span>
+                    <input
+                      list="status-options"
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      placeholder="pending"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Priority</span>
+                    <input
+                      list="priority-options"
+                      name="priority"
+                      value={form.priority}
+                      onChange={handleChange}
+                      placeholder="medium"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Category</span>
+                    <input
+                      list="category-options"
+                      name="category"
+                      value={form.category}
+                      onChange={handleChange}
+                      placeholder="Operations"
+                    />
+                  </label>
+
+                  <label>
+                    <span>Due date</span>
+                    <input
+                      type="date"
+                      name="dueDate"
+                      value={form.dueDate}
+                      onChange={handleChange}
+                    />
+                  </label>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="primary-button" disabled={saving}>
+                    {saving ? 'Saving...' : 'Create task'}
                   </button>
                   <button
                     type="button"
-                    className="inline-action danger"
-                    onClick={() => handleDelete(task.id)}
+                    className="ghost-button"
+                    onClick={handleResetForm}
                     disabled={saving}
                   >
-                    Delete
+                    Reset
                   </button>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
+              </form>
+            </section>
+          ) : (
+            <section className="panel" aria-label="Task list">
+              <div className="panel-header compact">
+                <div>
+                  <p className="panel-kicker">Tasks</p>
+                  <h1>All tasks</h1>
+                </div>
+              </div>
 
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="panel-kicker">Editor</p>
-              <h2>{isEditing ? 'Update task' : 'Log a new task'}</h2>
-            </div>
-            {selectedTask ? (
-              <span className="detail-chip">Selected: {selectedTask.title}</span>
-            ) : null}
-          </div>
+              <div className="task-toolbar">
+                <div className="filter-grid">
+                  <label>
+                    <span>Date entered</span>
+                    <input
+                      type="date"
+                      name="enteredDate"
+                      value={filters.enteredDate}
+                      onChange={handleFilterChange}
+                    />
+                  </label>
 
-          <form className="task-form" onSubmit={handleSubmit}>
-            <label>
-              <span>Title</span>
-              <input
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                placeholder="Prepare weekly release notes"
-                required
-              />
-            </label>
+                  <label>
+                    <span>Priority</span>
+                    <input
+                      list="priority-options"
+                      name="priority"
+                      value={filters.priority}
+                      onChange={handleFilterChange}
+                      placeholder="All priorities"
+                    />
+                  </label>
 
-            <label>
-              <span>Description</span>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                rows="5"
-                placeholder="Capture what was done, blockers, and follow-up."
-              />
-            </label>
+                  <label>
+                    <span>Category</span>
+                    <input
+                      list="category-options"
+                      name="category"
+                      value={filters.category}
+                      onChange={handleFilterChange}
+                      placeholder="All categories"
+                    />
+                  </label>
 
-            <div className="form-grid">
-              <label>
-                <span>Status</span>
-                <select name="status" value={form.status} onChange={handleChange}>
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="archived">Archived</option>
-                </select>
-              </label>
+                  <label>
+                    <span>Status</span>
+                    <input
+                      list="status-options"
+                      name="status"
+                      value={filters.status}
+                      onChange={handleFilterChange}
+                      placeholder="All statuses"
+                    />
+                  </label>
+                </div>
+              </div>
 
-              <label>
-                <span>Priority</span>
-                <select
-                  name="priority"
-                  value={form.priority}
-                  onChange={handleChange}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </label>
+              <div className="task-list">
+                {filteredTasks.length === 0 ? (
+                  <div className="empty-state">
+                    <h3>No tasks matched this view.</h3>
+                    <p>Try a different filter in the Tasks section.</p>
+                  </div>
+                ) : null}
 
-              <label>
-                <span>Category</span>
-                <input
-                  name="category"
-                  value={form.category}
-                  onChange={handleChange}
-                  placeholder="Operations"
-                />
-              </label>
-
-              <label>
-                <span>Due date</span>
-                <input
-                  type="date"
-                  name="dueDate"
-                  value={form.dueDate}
-                  onChange={handleChange}
-                />
-              </label>
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="primary-button" disabled={saving}>
-                {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Create task'}
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={handleResetForm}
-                disabled={saving}
-              >
-                Reset
-              </button>
-            </div>
-          </form>
+                {filteredTasks.map((task) => (
+                  <article key={task.id} className="task-card">
+                    <div className="task-card-main">
+                      <div className="task-card-heading">
+                        <h3>{task.title}</h3>
+                        <span className={`badge status-${task.status}`}>
+                          {task.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p>{task.description}</p>
+                      <div className="task-card-meta">
+                        <span>Entered {formatEnteredDate(task.createdAt)}</span>
+                        <span>{task.priority} priority</span>
+                        <span>{task.category}</span>
+                        <span>Due {task.dueDate || 'not set'}</span>
+                      </div>
+                    </div>
+                    <div className="task-card-actions">
+                      <button
+                        type="button"
+                        className="inline-action"
+                        onClick={() => handleQuickStatus(task)}
+                        disabled={saving}
+                      >
+                        Complete and remove
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-action danger"
+                        onClick={() => handleDelete(task.id)}
+                        disabled={saving}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
         </section>
       </main>
-
-      <footer className="site-footer">
-        <p>&copy; {new Date().getFullYear()} Taskk. All rights reserved.</p>
-      </footer>
     </div>
   )
 }
