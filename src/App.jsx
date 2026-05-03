@@ -4,6 +4,7 @@ import {
   createTask,
   deleteTask,
   listTasks,
+  updateTask,
 } from './lib/tasks.js'
 
 const emptyForm = {
@@ -104,15 +105,71 @@ function SelectField({ name, value, onChange, options, allLabel, customLabel }) 
   )
 }
 
+function FilterComboField({
+  name,
+  value,
+  options,
+  placeholder,
+  isOpen,
+  onInputChange,
+  onToggle,
+  onSelect,
+}) {
+  return (
+    <div className="filter-combo">
+      <div className="filter-input-wrap">
+        <input
+          name={name}
+          value={value}
+          onChange={onInputChange}
+          placeholder={placeholder}
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          className="filter-toggle"
+          onClick={onToggle}
+          aria-label={`Toggle ${name} options`}
+          aria-expanded={isOpen}
+        >
+          v
+        </button>
+      </div>
+      {isOpen ? (
+        <div className="filter-menu">
+          <button
+            type="button"
+            className="filter-option"
+            onClick={() => onSelect('')}
+          >
+            {placeholder}
+          </button>
+          {options.map((option) => (
+            <button
+              type="button"
+              key={option}
+              className="filter-option"
+              onClick={() => onSelect(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function App() {
   const [tasks, setTasks] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [filters, setFilters] = useState(emptyFilters)
   const [activeSection, setActiveSection] = useState('new')
+  const [editingTaskId, setEditingTaskId] = useState(null)
+  const [openFilterMenu, setOpenFilterMenu] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [backendMode, setBackendMode] = useState('connecting')
 
   useEffect(() => {
     let ignore = false
@@ -129,14 +186,12 @@ function App() {
         }
 
         setTasks(response.tasks)
-        setBackendMode(response.source === 'api' ? 'live' : 'fallback')
       } catch (loadError) {
         if (ignore) {
           return
         }
 
         setTasks([])
-        setBackendMode('fallback')
         setError(loadError.message)
       } finally {
         if (!ignore) {
@@ -176,21 +231,22 @@ function App() {
   const categoryOptions = mergeOptions(
     defaultCategoryOptions,
     tasks.map((task) => task.category),
-    form.category,
+    `${form.category} ${filters.category}`.trim(),
   )
   const priorityOptions = mergeOptions(
     defaultPriorityOptions,
     tasks.map((task) => task.priority),
-    form.priority,
+    `${form.priority} ${filters.priority}`.trim(),
   )
   const statusOptions = mergeOptions(
     defaultStatusOptions,
     tasks.map((task) => task.status),
-    form.status,
+    `${form.status} ${filters.status}`.trim(),
   )
 
   function handleResetForm() {
     setForm(emptyForm)
+    setEditingTaskId(null)
   }
 
   function handleChange(event) {
@@ -218,8 +274,15 @@ function App() {
     setError('')
 
     try {
-      const created = await createTask(form)
-      setTasks((currentTasks) => [created, ...currentTasks])
+      if (editingTaskId) {
+        const updated = await updateTask(editingTaskId, form)
+        setTasks((currentTasks) =>
+          currentTasks.map((task) => (task.id === editingTaskId ? updated : task)),
+        )
+      } else {
+        const created = await createTask(form)
+        setTasks((currentTasks) => [created, ...currentTasks])
+      }
 
       handleResetForm()
       setActiveSection('tasks')
@@ -239,6 +302,9 @@ function App() {
       setTasks((currentTasks) =>
         currentTasks.filter((task) => task.id !== taskId),
       )
+      if (editingTaskId === taskId) {
+        handleResetForm()
+      }
     } catch (deleteError) {
       setError(deleteError.message)
     } finally {
@@ -255,6 +321,9 @@ function App() {
       setTasks((currentTasks) =>
         currentTasks.filter((item) => item.id !== task.id),
       )
+      if (editingTaskId === task.id) {
+        handleResetForm()
+      }
     } catch (statusError) {
       setError(statusError.message)
     } finally {
@@ -267,25 +336,23 @@ function App() {
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }))
   }
 
-  function handleFilterSelectChange(event, options) {
-    const { name, value } = event.target
-
-    if (value === '__all__') {
-      setFilters((currentFilters) => ({ ...currentFilters, [name]: '' }))
-      return
-    }
-
-    if (value === '__custom__') {
-      setFilters((currentFilters) => ({
-        ...currentFilters,
-        [name]: isKnownOption(currentFilters[name], options)
-          ? ''
-          : currentFilters[name],
-      }))
-      return
-    }
-
+  function handleFilterOptionSelect(name, value) {
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }))
+    setOpenFilterMenu(null)
+  }
+
+  function handleEditTask(task) {
+    setForm({
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      status: task.status,
+      category: task.category,
+      dueDate: task.dueDate || '',
+    })
+    setEditingTaskId(task.id)
+    setActiveSection('new')
+    setOpenFilterMenu(null)
   }
 
   return (
@@ -307,19 +374,6 @@ function App() {
             >
               Tasks
             </button>
-          </div>
-
-          <div className="status-strip">
-            <div className="backend-pill client-pill">
-              <span className={`backend-dot ${backendMode}`}></span>
-              <strong>
-                {backendMode === 'live'
-                  ? 'Live project data'
-                  : backendMode === 'fallback'
-                    ? 'Demo preview data'
-                    : 'Connecting to project data'}
-              </strong>
-            </div>
           </div>
 
           {error ? <div className="banner error">{error}</div> : null}
@@ -449,7 +503,7 @@ function App() {
 
                 <div className="form-actions">
                   <button type="submit" className="primary-button" disabled={saving}>
-                    {saving ? 'Saving...' : 'Create task'}
+                    {saving ? 'Saving...' : editingTaskId ? 'Save changes' : 'Create task'}
                   </button>
                   <button
                     type="button"
@@ -485,90 +539,57 @@ function App() {
 
                   <label>
                     <span>Priority</span>
-                    <SelectField
+                    <FilterComboField
                       name="priority"
-                      value={
-                        !filters.priority
-                          ? '__all__'
-                          : isKnownOption(filters.priority, priorityOptions)
-                            ? filters.priority
-                            : '__custom__'
-                      }
-                      onChange={(event) => handleFilterSelectChange(event, priorityOptions)}
+                      value={filters.priority}
                       options={priorityOptions}
-                      allLabel="All priorities"
-                      customLabel="Custom priority"
+                      placeholder="All priorities"
+                      isOpen={openFilterMenu === 'priority'}
+                      onInputChange={handleFilterChange}
+                      onToggle={() =>
+                        setOpenFilterMenu((current) =>
+                          current === 'priority' ? null : 'priority',
+                        )
+                      }
+                      onSelect={(value) => handleFilterOptionSelect('priority', value)}
                     />
                   </label>
-                  {!filters.priority || isKnownOption(filters.priority, priorityOptions) ? null : (
-                    <label className="custom-input-row">
-                      <span>Custom priority</span>
-                      <input
-                        name="priority"
-                        value={filters.priority}
-                        onChange={handleFilterChange}
-                        placeholder="critical"
-                      />
-                    </label>
-                  )}
 
                   <label>
                     <span>Category</span>
-                    <SelectField
+                    <FilterComboField
                       name="category"
-                      value={
-                        !filters.category
-                          ? '__all__'
-                          : isKnownOption(filters.category, categoryOptions)
-                            ? filters.category
-                            : '__custom__'
-                      }
-                      onChange={(event) => handleFilterSelectChange(event, categoryOptions)}
+                      value={filters.category}
                       options={categoryOptions}
-                      allLabel="All categories"
-                      customLabel="Custom category"
+                      placeholder="All categories"
+                      isOpen={openFilterMenu === 'category'}
+                      onInputChange={handleFilterChange}
+                      onToggle={() =>
+                        setOpenFilterMenu((current) =>
+                          current === 'category' ? null : 'category',
+                        )
+                      }
+                      onSelect={(value) => handleFilterOptionSelect('category', value)}
                     />
                   </label>
-                  {!filters.category || isKnownOption(filters.category, categoryOptions) ? null : (
-                    <label className="custom-input-row">
-                      <span>Custom category</span>
-                      <input
-                        name="category"
-                        value={filters.category}
-                        onChange={handleFilterChange}
-                        placeholder="Partnerships"
-                      />
-                    </label>
-                  )}
 
                   <label>
                     <span>Status</span>
-                    <SelectField
+                    <FilterComboField
                       name="status"
-                      value={
-                        !filters.status
-                          ? '__all__'
-                          : isKnownOption(filters.status, statusOptions)
-                            ? filters.status
-                            : '__custom__'
-                      }
-                      onChange={(event) => handleFilterSelectChange(event, statusOptions)}
+                      value={filters.status}
                       options={statusOptions}
-                      allLabel="All statuses"
-                      customLabel="Custom status"
+                      placeholder="All statuses"
+                      isOpen={openFilterMenu === 'status'}
+                      onInputChange={handleFilterChange}
+                      onToggle={() =>
+                        setOpenFilterMenu((current) =>
+                          current === 'status' ? null : 'status',
+                        )
+                      }
+                      onSelect={(value) => handleFilterOptionSelect('status', value)}
                     />
                   </label>
-                  {!filters.status || isKnownOption(filters.status, statusOptions) ? null : (
-                    <label className="custom-input-row">
-                      <span>Custom status</span>
-                      <input
-                        name="status"
-                        value={filters.status}
-                        onChange={handleFilterChange}
-                        placeholder="waiting_review"
-                      />
-                    </label>
-                  )}
                 </div>
               </div>
 
@@ -598,6 +619,14 @@ function App() {
                       </div>
                     </div>
                     <div className="task-card-actions">
+                      <button
+                        type="button"
+                        className="inline-action"
+                        onClick={() => handleEditTask(task)}
+                        disabled={saving}
+                      >
+                        Edit
+                      </button>
                       <button
                         type="button"
                         className="inline-action"
