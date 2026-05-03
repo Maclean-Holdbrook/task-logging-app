@@ -39,6 +39,10 @@ const defaultCategoryOptions = [
   'Development',
   'Testing',
   'MCP',
+  'Marketing',
+  'Finance',
+  'Support',
+  'Research',
 ]
 
 function formatEnteredDate(value) {
@@ -75,6 +79,29 @@ function mergeOptions(defaultOptions, taskValues, currentValue) {
   return Array.from(
     new Set([...defaultOptions, ...taskValues.filter(Boolean), currentValue].filter(Boolean)),
   ).sort((left, right) => left.localeCompare(right))
+}
+
+function isKnownOption(value, options) {
+  return options.includes(value)
+}
+
+function SelectField({ name, value, onChange, options, allLabel, customLabel }) {
+  return (
+    <div className="select-field">
+      <select name={name} value={value} onChange={onChange}>
+        {allLabel ? <option value="__all__">{allLabel}</option> : null}
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value="__custom__">{customLabel}</option>
+      </select>
+      <span className="select-arrow" aria-hidden="true">
+        v
+      </span>
+    </div>
+  )
 }
 
 function App() {
@@ -171,6 +198,20 @@ function App() {
     setForm((currentForm) => ({ ...currentForm, [name]: value }))
   }
 
+  function handleFormSelectChange(event, options) {
+    const { name, value } = event.target
+
+    if (value === '__custom__') {
+      setForm((currentForm) => ({
+        ...currentForm,
+        [name]: isKnownOption(currentForm[name], options) ? '' : currentForm[name],
+      }))
+      return
+    }
+
+    setForm((currentForm) => ({ ...currentForm, [name]: value }))
+  }
+
   async function handleSubmit(event) {
     event.preventDefault()
     setSaving(true)
@@ -226,6 +267,27 @@ function App() {
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }))
   }
 
+  function handleFilterSelectChange(event, options) {
+    const { name, value } = event.target
+
+    if (value === '__all__') {
+      setFilters((currentFilters) => ({ ...currentFilters, [name]: '' }))
+      return
+    }
+
+    if (value === '__custom__') {
+      setFilters((currentFilters) => ({
+        ...currentFilters,
+        [name]: isKnownOption(currentFilters[name], options)
+          ? ''
+          : currentFilters[name],
+      }))
+      return
+    }
+
+    setFilters((currentFilters) => ({ ...currentFilters, [name]: value }))
+  }
+
   return (
     <div className="app-shell">
       <main className="mobile-shell">
@@ -263,24 +325,6 @@ function App() {
           {error ? <div className="banner error">{error}</div> : null}
           {loading ? <div className="banner">Loading tasks...</div> : null}
 
-          <datalist id="priority-options">
-            {priorityOptions.map((priority) => (
-              <option key={priority} value={priority} />
-            ))}
-          </datalist>
-
-          <datalist id="category-options">
-            {categoryOptions.map((category) => (
-              <option key={category} value={category} />
-            ))}
-          </datalist>
-
-          <datalist id="status-options">
-            {statusOptions.map((status) => (
-              <option key={status} value={status} />
-            ))}
-          </datalist>
-
           {activeSection === 'new' ? (
             <section className="panel" aria-label="New task form">
               <div className="panel-header compact">
@@ -316,36 +360,81 @@ function App() {
                 <div className="form-grid">
                   <label>
                     <span>Status</span>
-                    <input
-                      list="status-options"
+                    <SelectField
                       name="status"
-                      value={form.status}
-                      onChange={handleChange}
-                      placeholder="pending"
+                      value={
+                        isKnownOption(form.status, statusOptions)
+                          ? form.status
+                          : '__custom__'
+                      }
+                      onChange={(event) => handleFormSelectChange(event, statusOptions)}
+                      options={statusOptions}
+                      customLabel="Custom status"
                     />
                   </label>
+                  {!isKnownOption(form.status, statusOptions) ? (
+                    <label className="custom-input-row">
+                      <span>Custom status</span>
+                      <input
+                        name="status"
+                        value={form.status}
+                        onChange={handleChange}
+                        placeholder="waiting_review"
+                      />
+                    </label>
+                  ) : null}
 
                   <label>
                     <span>Priority</span>
-                    <input
-                      list="priority-options"
+                    <SelectField
                       name="priority"
-                      value={form.priority}
-                      onChange={handleChange}
-                      placeholder="medium"
+                      value={
+                        isKnownOption(form.priority, priorityOptions)
+                          ? form.priority
+                          : '__custom__'
+                      }
+                      onChange={(event) => handleFormSelectChange(event, priorityOptions)}
+                      options={priorityOptions}
+                      customLabel="Custom priority"
                     />
                   </label>
+                  {!isKnownOption(form.priority, priorityOptions) ? (
+                    <label className="custom-input-row">
+                      <span>Custom priority</span>
+                      <input
+                        name="priority"
+                        value={form.priority}
+                        onChange={handleChange}
+                        placeholder="critical"
+                      />
+                    </label>
+                  ) : null}
 
                   <label>
                     <span>Category</span>
-                    <input
-                      list="category-options"
+                    <SelectField
                       name="category"
-                      value={form.category}
-                      onChange={handleChange}
-                      placeholder="Operations"
+                      value={
+                        isKnownOption(form.category, categoryOptions)
+                          ? form.category
+                          : '__custom__'
+                      }
+                      onChange={(event) => handleFormSelectChange(event, categoryOptions)}
+                      options={categoryOptions}
+                      customLabel="Custom category"
                     />
                   </label>
+                  {!isKnownOption(form.category, categoryOptions) ? (
+                    <label className="custom-input-row">
+                      <span>Custom category</span>
+                      <input
+                        name="category"
+                        value={form.category}
+                        onChange={handleChange}
+                        placeholder="Partnerships"
+                      />
+                    </label>
+                  ) : null}
 
                   <label>
                     <span>Due date</span>
@@ -396,36 +485,90 @@ function App() {
 
                   <label>
                     <span>Priority</span>
-                    <input
-                      list="priority-options"
+                    <SelectField
                       name="priority"
-                      value={filters.priority}
-                      onChange={handleFilterChange}
-                      placeholder="All priorities"
+                      value={
+                        !filters.priority
+                          ? '__all__'
+                          : isKnownOption(filters.priority, priorityOptions)
+                            ? filters.priority
+                            : '__custom__'
+                      }
+                      onChange={(event) => handleFilterSelectChange(event, priorityOptions)}
+                      options={priorityOptions}
+                      allLabel="All priorities"
+                      customLabel="Custom priority"
                     />
                   </label>
+                  {!filters.priority || isKnownOption(filters.priority, priorityOptions) ? null : (
+                    <label className="custom-input-row">
+                      <span>Custom priority</span>
+                      <input
+                        name="priority"
+                        value={filters.priority}
+                        onChange={handleFilterChange}
+                        placeholder="critical"
+                      />
+                    </label>
+                  )}
 
                   <label>
                     <span>Category</span>
-                    <input
-                      list="category-options"
+                    <SelectField
                       name="category"
-                      value={filters.category}
-                      onChange={handleFilterChange}
-                      placeholder="All categories"
+                      value={
+                        !filters.category
+                          ? '__all__'
+                          : isKnownOption(filters.category, categoryOptions)
+                            ? filters.category
+                            : '__custom__'
+                      }
+                      onChange={(event) => handleFilterSelectChange(event, categoryOptions)}
+                      options={categoryOptions}
+                      allLabel="All categories"
+                      customLabel="Custom category"
                     />
                   </label>
+                  {!filters.category || isKnownOption(filters.category, categoryOptions) ? null : (
+                    <label className="custom-input-row">
+                      <span>Custom category</span>
+                      <input
+                        name="category"
+                        value={filters.category}
+                        onChange={handleFilterChange}
+                        placeholder="Partnerships"
+                      />
+                    </label>
+                  )}
 
                   <label>
                     <span>Status</span>
-                    <input
-                      list="status-options"
+                    <SelectField
                       name="status"
-                      value={filters.status}
-                      onChange={handleFilterChange}
-                      placeholder="All statuses"
+                      value={
+                        !filters.status
+                          ? '__all__'
+                          : isKnownOption(filters.status, statusOptions)
+                            ? filters.status
+                            : '__custom__'
+                      }
+                      onChange={(event) => handleFilterSelectChange(event, statusOptions)}
+                      options={statusOptions}
+                      allLabel="All statuses"
+                      customLabel="Custom status"
                     />
                   </label>
+                  {!filters.status || isKnownOption(filters.status, statusOptions) ? null : (
+                    <label className="custom-input-row">
+                      <span>Custom status</span>
+                      <input
+                        name="status"
+                        value={filters.status}
+                        onChange={handleFilterChange}
+                        placeholder="waiting_review"
+                      />
+                    </label>
+                  )}
                 </div>
               </div>
 

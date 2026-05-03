@@ -170,6 +170,31 @@ textarea {
   color: #f8fafc;
 }
 
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.select-field {
+  position: relative;
+}
+
+.select-field select {
+  padding-right: 2.8rem;
+}
+
+.select-arrow {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%);
+  color: #cbd5e1;
+  pointer-events: none;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
 textarea {
   resize: vertical;
 }
