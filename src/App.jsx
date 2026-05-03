@@ -86,25 +86,6 @@ function isKnownOption(value, options) {
   return options.includes(value)
 }
 
-function SelectField({ name, value, onChange, options, allLabel, customLabel }) {
-  return (
-    <div className="select-field">
-      <select name={name} value={value} onChange={onChange}>
-        {allLabel ? <option value="__all__">{allLabel}</option> : null}
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-        <option value="__custom__">{customLabel}</option>
-      </select>
-      <span className="select-arrow" aria-hidden="true">
-        v
-      </span>
-    </div>
-  )
-}
-
 function FilterComboField({
   name,
   value,
@@ -166,7 +147,7 @@ function App() {
   const [filters, setFilters] = useState(emptyFilters)
   const [activeSection, setActiveSection] = useState('new')
   const [editingTaskId, setEditingTaskId] = useState(null)
-  const [openFilterMenu, setOpenFilterMenu] = useState(null)
+  const [openMenu, setOpenMenu] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -254,20 +235,6 @@ function App() {
     setForm((currentForm) => ({ ...currentForm, [name]: value }))
   }
 
-  function handleFormSelectChange(event, options) {
-    const { name, value } = event.target
-
-    if (value === '__custom__') {
-      setForm((currentForm) => ({
-        ...currentForm,
-        [name]: isKnownOption(currentForm[name], options) ? '' : currentForm[name],
-      }))
-      return
-    }
-
-    setForm((currentForm) => ({ ...currentForm, [name]: value }))
-  }
-
   async function handleSubmit(event) {
     event.preventDefault()
     setSaving(true)
@@ -338,7 +305,12 @@ function App() {
 
   function handleFilterOptionSelect(name, value) {
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }))
-    setOpenFilterMenu(null)
+    setOpenMenu(null)
+  }
+
+  function handleFormOptionSelect(name, value) {
+    setForm((currentForm) => ({ ...currentForm, [name]: value }))
+    setOpenMenu(null)
   }
 
   function handleEditTask(task) {
@@ -352,7 +324,7 @@ function App() {
     })
     setEditingTaskId(task.id)
     setActiveSection('new')
-    setOpenFilterMenu(null)
+    setOpenMenu(null)
   }
 
   return (
@@ -414,81 +386,57 @@ function App() {
                 <div className="form-grid">
                   <label>
                     <span>Status</span>
-                    <SelectField
+                    <FilterComboField
                       name="status"
-                      value={
-                        isKnownOption(form.status, statusOptions)
-                          ? form.status
-                          : '__custom__'
-                      }
-                      onChange={(event) => handleFormSelectChange(event, statusOptions)}
+                      value={form.status}
                       options={statusOptions}
-                      customLabel="Custom status"
+                      placeholder="Type or choose status"
+                      isOpen={openMenu === 'form-status'}
+                      onInputChange={handleChange}
+                      onToggle={() =>
+                        setOpenMenu((current) =>
+                          current === 'form-status' ? null : 'form-status',
+                        )
+                      }
+                      onSelect={(value) => handleFormOptionSelect('status', value)}
                     />
                   </label>
-                  {!isKnownOption(form.status, statusOptions) ? (
-                    <label className="custom-input-row">
-                      <span>Custom status</span>
-                      <input
-                        name="status"
-                        value={form.status}
-                        onChange={handleChange}
-                        placeholder="waiting_review"
-                      />
-                    </label>
-                  ) : null}
 
                   <label>
                     <span>Priority</span>
-                    <SelectField
+                    <FilterComboField
                       name="priority"
-                      value={
-                        isKnownOption(form.priority, priorityOptions)
-                          ? form.priority
-                          : '__custom__'
-                      }
-                      onChange={(event) => handleFormSelectChange(event, priorityOptions)}
+                      value={form.priority}
                       options={priorityOptions}
-                      customLabel="Custom priority"
+                      placeholder="Type or choose priority"
+                      isOpen={openMenu === 'form-priority'}
+                      onInputChange={handleChange}
+                      onToggle={() =>
+                        setOpenMenu((current) =>
+                          current === 'form-priority' ? null : 'form-priority',
+                        )
+                      }
+                      onSelect={(value) => handleFormOptionSelect('priority', value)}
                     />
                   </label>
-                  {!isKnownOption(form.priority, priorityOptions) ? (
-                    <label className="custom-input-row">
-                      <span>Custom priority</span>
-                      <input
-                        name="priority"
-                        value={form.priority}
-                        onChange={handleChange}
-                        placeholder="critical"
-                      />
-                    </label>
-                  ) : null}
 
                   <label>
                     <span>Category</span>
-                    <SelectField
+                    <FilterComboField
                       name="category"
-                      value={
-                        isKnownOption(form.category, categoryOptions)
-                          ? form.category
-                          : '__custom__'
-                      }
-                      onChange={(event) => handleFormSelectChange(event, categoryOptions)}
+                      value={form.category}
                       options={categoryOptions}
-                      customLabel="Custom category"
+                      placeholder="Type or choose category"
+                      isOpen={openMenu === 'form-category'}
+                      onInputChange={handleChange}
+                      onToggle={() =>
+                        setOpenMenu((current) =>
+                          current === 'form-category' ? null : 'form-category',
+                        )
+                      }
+                      onSelect={(value) => handleFormOptionSelect('category', value)}
                     />
                   </label>
-                  {!isKnownOption(form.category, categoryOptions) ? (
-                    <label className="custom-input-row">
-                      <span>Custom category</span>
-                      <input
-                        name="category"
-                        value={form.category}
-                        onChange={handleChange}
-                        placeholder="Partnerships"
-                      />
-                    </label>
-                  ) : null}
 
                   <label>
                     <span>Due date</span>
@@ -544,10 +492,10 @@ function App() {
                       value={filters.priority}
                       options={priorityOptions}
                       placeholder="All priorities"
-                      isOpen={openFilterMenu === 'priority'}
+                      isOpen={openMenu === 'priority'}
                       onInputChange={handleFilterChange}
                       onToggle={() =>
-                        setOpenFilterMenu((current) =>
+                        setOpenMenu((current) =>
                           current === 'priority' ? null : 'priority',
                         )
                       }
@@ -562,10 +510,10 @@ function App() {
                       value={filters.category}
                       options={categoryOptions}
                       placeholder="All categories"
-                      isOpen={openFilterMenu === 'category'}
+                      isOpen={openMenu === 'category'}
                       onInputChange={handleFilterChange}
                       onToggle={() =>
-                        setOpenFilterMenu((current) =>
+                        setOpenMenu((current) =>
                           current === 'category' ? null : 'category',
                         )
                       }
@@ -580,10 +528,10 @@ function App() {
                       value={filters.status}
                       options={statusOptions}
                       placeholder="All statuses"
-                      isOpen={openFilterMenu === 'status'}
+                      isOpen={openMenu === 'status'}
                       onInputChange={handleFilterChange}
                       onToggle={() =>
-                        setOpenFilterMenu((current) =>
+                        setOpenMenu((current) =>
                           current === 'status' ? null : 'status',
                         )
                       }
