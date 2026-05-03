@@ -17,7 +17,9 @@ const emptyForm = {
 }
 
 const emptyFilters = {
-  enteredDate: '',
+  enteredFrom: '',
+  enteredTo: '',
+  dueDate: '',
   priority: '',
   category: '',
   status: '',
@@ -148,6 +150,7 @@ function App() {
   const [activeSection, setActiveSection] = useState('new')
   const [editingTaskId, setEditingTaskId] = useState(null)
   const [openMenu, setOpenMenu] = useState(null)
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -189,10 +192,14 @@ function App() {
   }, [])
 
   const filteredTasks = tasks.filter((task) => {
-    const matchesDate =
-      !filters.enteredDate
-        ? true
-        : normalizeDateValue(task.createdAt) === filters.enteredDate
+    const enteredDate = normalizeDateValue(task.createdAt)
+    const dueDate = normalizeDateValue(task.dueDate)
+    const matchesEnteredFrom =
+      !filters.enteredFrom ? true : enteredDate >= filters.enteredFrom
+    const matchesEnteredTo =
+      !filters.enteredTo ? true : enteredDate <= filters.enteredTo
+    const matchesDueDate =
+      !filters.dueDate ? true : dueDate === filters.dueDate
     const matchesPriority =
       !filters.priority
         ? true
@@ -206,7 +213,14 @@ function App() {
         ? true
         : normalizeTextValue(task.status) === normalizeTextValue(filters.status)
 
-    return matchesDate && matchesPriority && matchesCategory && matchesStatus
+    return (
+      matchesEnteredFrom &&
+      matchesEnteredTo &&
+      matchesDueDate &&
+      matchesPriority &&
+      matchesCategory &&
+      matchesStatus
+    )
   })
 
   const categoryOptions = mergeOptions(
@@ -324,6 +338,16 @@ function App() {
     })
     setEditingTaskId(task.id)
     setActiveSection('new')
+    setOpenMenu(null)
+  }
+
+  function handleCloseFilterModal() {
+    setIsFilterModalOpen(false)
+    setOpenMenu(null)
+  }
+
+  function handleResetFilters() {
+    setFilters(emptyFilters)
     setOpenMenu(null)
   }
 
@@ -471,74 +495,13 @@ function App() {
                   <p className="panel-kicker">Tasks</p>
                   <h1>All tasks</h1>
                 </div>
-              </div>
-
-              <div className="task-toolbar">
-                <div className="filter-grid">
-                  <label>
-                    <span>Date entered</span>
-                    <input
-                      type="date"
-                      name="enteredDate"
-                      value={filters.enteredDate}
-                      onChange={handleFilterChange}
-                    />
-                  </label>
-
-                  <label>
-                    <span>Priority</span>
-                    <FilterComboField
-                      name="priority"
-                      value={filters.priority}
-                      options={priorityOptions}
-                      placeholder="All priorities"
-                      isOpen={openMenu === 'priority'}
-                      onInputChange={handleFilterChange}
-                      onToggle={() =>
-                        setOpenMenu((current) =>
-                          current === 'priority' ? null : 'priority',
-                        )
-                      }
-                      onSelect={(value) => handleFilterOptionSelect('priority', value)}
-                    />
-                  </label>
-
-                  <label>
-                    <span>Category</span>
-                    <FilterComboField
-                      name="category"
-                      value={filters.category}
-                      options={categoryOptions}
-                      placeholder="All categories"
-                      isOpen={openMenu === 'category'}
-                      onInputChange={handleFilterChange}
-                      onToggle={() =>
-                        setOpenMenu((current) =>
-                          current === 'category' ? null : 'category',
-                        )
-                      }
-                      onSelect={(value) => handleFilterOptionSelect('category', value)}
-                    />
-                  </label>
-
-                  <label>
-                    <span>Status</span>
-                    <FilterComboField
-                      name="status"
-                      value={filters.status}
-                      options={statusOptions}
-                      placeholder="All statuses"
-                      isOpen={openMenu === 'status'}
-                      onInputChange={handleFilterChange}
-                      onToggle={() =>
-                        setOpenMenu((current) =>
-                          current === 'status' ? null : 'status',
-                        )
-                      }
-                      onSelect={(value) => handleFilterOptionSelect('status', value)}
-                    />
-                  </label>
-                </div>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => setIsFilterModalOpen(true)}
+                >
+                  Filter
+                </button>
               </div>
 
               <div className="task-list">
@@ -599,6 +562,139 @@ function App() {
           )}
         </section>
       </main>
+
+      {isFilterModalOpen ? (
+        <div
+          className="modal-overlay"
+          role="presentation"
+          onClick={handleCloseFilterModal}
+        >
+          <section
+            className="filter-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Task filters"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="panel-header compact">
+              <div>
+                <p className="panel-kicker">Filters</p>
+                <h1>Filter tasks</h1>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={handleCloseFilterModal}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="filter-grid">
+              <label>
+                <span>Date from</span>
+                <input
+                  type="date"
+                  name="enteredFrom"
+                  value={filters.enteredFrom}
+                  onChange={handleFilterChange}
+                />
+              </label>
+
+              <label>
+                <span>Date to</span>
+                <input
+                  type="date"
+                  name="enteredTo"
+                  value={filters.enteredTo}
+                  onChange={handleFilterChange}
+                />
+              </label>
+
+              <label>
+                <span>Due date</span>
+                <input
+                  type="date"
+                  name="dueDate"
+                  value={filters.dueDate}
+                  onChange={handleFilterChange}
+                />
+              </label>
+
+              <label>
+                <span>Priority</span>
+                <FilterComboField
+                  name="priority"
+                  value={filters.priority}
+                  options={priorityOptions}
+                  placeholder="All priorities"
+                  isOpen={openMenu === 'priority'}
+                  onInputChange={handleFilterChange}
+                  onToggle={() =>
+                    setOpenMenu((current) =>
+                      current === 'priority' ? null : 'priority',
+                    )
+                  }
+                  onSelect={(value) => handleFilterOptionSelect('priority', value)}
+                />
+              </label>
+
+              <label>
+                <span>Category</span>
+                <FilterComboField
+                  name="category"
+                  value={filters.category}
+                  options={categoryOptions}
+                  placeholder="All categories"
+                  isOpen={openMenu === 'category'}
+                  onInputChange={handleFilterChange}
+                  onToggle={() =>
+                    setOpenMenu((current) =>
+                      current === 'category' ? null : 'category',
+                    )
+                  }
+                  onSelect={(value) => handleFilterOptionSelect('category', value)}
+                />
+              </label>
+
+              <label>
+                <span>Status</span>
+                <FilterComboField
+                  name="status"
+                  value={filters.status}
+                  options={statusOptions}
+                  placeholder="All statuses"
+                  isOpen={openMenu === 'status'}
+                  onInputChange={handleFilterChange}
+                  onToggle={() =>
+                    setOpenMenu((current) =>
+                      current === 'status' ? null : 'status',
+                    )
+                  }
+                  onSelect={(value) => handleFilterOptionSelect('status', value)}
+                />
+              </label>
+            </div>
+
+            <div className="form-actions modal-actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={handleResetFilters}
+              >
+                Reset filters
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleCloseFilterModal}
+              >
+                Apply
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   )
 }
