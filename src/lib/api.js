@@ -1,5 +1,11 @@
+const HOSTED_API_BASE_URL = 'https://task-logging-app-backend-tfm4.vercel.app/api'
+
 function normalizeApiBaseUrl(value) {
   if (!value) {
+    if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return HOSTED_API_BASE_URL
+    }
+
     return 'http://localhost:4000/api'
   }
 

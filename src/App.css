@@ -73,6 +73,10 @@
 }
 
 .panel-header.compact {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1rem;
 }
 
@@ -364,5 +368,11 @@ textarea {
 
   .filter-modal {
     padding: 1.25rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .panel-header.compact {
+    align-items: center;
   }
 }
