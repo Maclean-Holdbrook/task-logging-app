@@ -9,7 +9,14 @@ function normalizeTask(task) {
     priority: task.priority || 'medium',
     category: task.category?.trim() || 'General',
     dueDate: task.dueDate || task.due_date || '',
+    completedAt: task.completedAt || task.completed_at || '',
+    outcome: task.outcome?.trim() || '',
+    impact: task.impact?.trim() || '',
+    project: task.project?.trim() || '',
+    client: task.client?.trim() || '',
+    tags: Array.isArray(task.tags) ? task.tags : [],
     createdAt: task.createdAt || task.created_at || '',
+    updatedAt: task.updatedAt || task.updated_at || '',
   }
 }
 
@@ -19,6 +26,7 @@ async function listTasks() {
 
   return {
     tasks: (tasks || []).map(normalizeTask),
+    pagination: payload?.pagination || null,
     source: 'api',
   }
 }
